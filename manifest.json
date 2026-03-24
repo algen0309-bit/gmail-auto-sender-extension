@@ -3,7 +3,7 @@
   "name": "Gmail Auto Sender",
   "version": "1.0",
   "description": "Automatically sends all open Gmail compose windows with one click.",
-  "permissions": ["tabs", "scripting"],
+  "permissions": ["tabs", "scripting", "storage"],
   "host_permissions": ["*://mail.google.com/*"],
   "content_scripts": [
     {
