@@ -20,35 +20,42 @@
       border-radius: 6px;
       padding: 10px 12px;
     }
-    .delay-label {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .delay-title {
       font-size: 12px;
+      font-weight: 600;
       color: #444;
+      margin-bottom: 10px;
+    }
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       margin-bottom: 6px;
     }
-    .delay-label span:first-child {
-      font-weight: 600;
+    .range-row label {
+      font-size: 11px;
+      color: #666;
+      width: 28px;
+      flex-shrink: 0;
     }
-    #delayValue {
-      font-size: 13px;
-      font-weight: 700;
-      color: #1a73e8;
-      min-width: 52px;
-      text-align: right;
-    }
-    #delaySlider {
-      width: 100%;
+    .range-row input[type="range"] {
+      flex: 1;
       accent-color: #1a73e8;
       cursor: pointer;
     }
-    .delay-range-labels {
-      display: flex;
-      justify-content: space-between;
+    .range-row .val {
+      font-size: 12px;
+      font-weight: 700;
+      color: #1a73e8;
+      width: 46px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .range-hint {
       font-size: 10px;
       color: #999;
-      margin-top: 2px;
+      text-align: center;
+      margin-top: 4px;
     }
     #sendBtn {
       width: 100%;
@@ -83,15 +90,21 @@
   <h2>Gmail Auto Sender</h2>
 
   <div class="delay-section">
-    <div class="delay-label">
-      <span>Delay between emails</span>
-      <span id="delayValue">30s</span>
+    <div class="delay-title">Random delay between emails</div>
+
+    <div class="range-row">
+      <label>From</label>
+      <input type="range" id="minSlider" min="1" max="300" step="1" value="10" />
+      <span class="val" id="minValue">10s</span>
     </div>
-    <input type="range" id="delaySlider" min="10" max="300" step="5" value="30" />
-    <div class="delay-range-labels">
-      <span>10s</span>
-      <span>5 min</span>
+
+    <div class="range-row">
+      <label>To</label>
+      <input type="range" id="maxSlider" min="1" max="300" step="1" value="60" />
+      <span class="val" id="maxValue">1m</span>
     </div>
+
+    <div class="range-hint">1s &nbsp;–&nbsp; 5 min</div>
   </div>
 
   <button id="sendBtn">Send All Open Compose Tabs</button>
