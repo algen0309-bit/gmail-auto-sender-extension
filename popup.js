@@ -1,7 +1,9 @@
 const sendBtn = document.getElementById('sendBtn');
 const statusList = document.getElementById('status');
-const delaySlider = document.getElementById('delaySlider');
-const delayValue = document.getElementById('delayValue');
+const minSlider = document.getElementById('minSlider');
+const maxSlider = document.getElementById('maxSlider');
+const minValue = document.getElementById('minValue');
+const maxValue = document.getElementById('maxValue');
 
 // --- Helpers ---
 
@@ -14,6 +16,10 @@ function formatDelay(seconds) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function randomDelay(minSec, maxSec) {
+  return Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
 }
 
 function addStatusItem(label, state) {
@@ -41,19 +47,28 @@ async function sendToTab(tab) {
   });
 }
 
-// --- Slider ---
+// --- Sliders ---
 
-delaySlider.addEventListener('input', () => {
-  delayValue.textContent = formatDelay(Number(delaySlider.value));
-  chrome.storage.local.set({ delaySeconds: Number(delaySlider.value) });
-});
-
-// Restore saved delay on popup open
-chrome.storage.local.get('delaySeconds', (data) => {
-  if (data.delaySeconds) {
-    delaySlider.value = data.delaySeconds;
-    delayValue.textContent = formatDelay(data.delaySeconds);
+function enforceMinMax() {
+  let min = Number(minSlider.value);
+  let max = Number(maxSlider.value);
+  // Keep min <= max
+  if (min > max) {
+    [minSlider.value, maxSlider.value] = [max, min];
+    [min, max] = [max, min];
   }
+  minValue.textContent = formatDelay(min);
+  maxValue.textContent = formatDelay(max);
+  chrome.storage.local.set({ minDelay: min, maxDelay: max });
+}
+
+minSlider.addEventListener('input', enforceMinMax);
+maxSlider.addEventListener('input', enforceMinMax);
+
+// Restore saved values on popup open
+chrome.storage.local.get(['minDelay', 'maxDelay'], (data) => {
+  if (data.minDelay) { minSlider.value = data.minDelay; minValue.textContent = formatDelay(data.minDelay); }
+  if (data.maxDelay) { maxSlider.value = data.maxDelay; maxValue.textContent = formatDelay(data.maxDelay); }
 });
 
 // --- Send ---
@@ -72,7 +87,8 @@ sendBtn.addEventListener('click', async () => {
     return;
   }
 
-  const delaySeconds = Number(delaySlider.value);
+  const minSec = Number(minSlider.value);
+  const maxSec = Number(maxSlider.value);
 
   for (let i = 0; i < tabs.length; i++) {
     const tab = tabs[i];
@@ -87,11 +103,12 @@ sendBtn.addEventListener('click', async () => {
       updateStatusItem(li, `${shortTitle} — ${result.message}`, 'err');
     }
 
-    // Countdown between emails (skip after the last one)
+    // Random countdown between emails (skip after the last one)
     if (i < tabs.length - 1) {
-      const countdownLi = addStatusItem(`Next in ${formatDelay(delaySeconds)}…`, 'countdown');
+      const delaySec = randomDelay(minSec, maxSec);
+      const countdownLi = addStatusItem(`Next in ${formatDelay(delaySec)}…`, 'countdown');
 
-      for (let t = delaySeconds; t > 0; t--) {
+      for (let t = delaySec; t > 0; t--) {
         updateStatusItem(countdownLi, `Next in ${formatDelay(t)}…`, 'countdown');
         await sleep(1000);
       }
