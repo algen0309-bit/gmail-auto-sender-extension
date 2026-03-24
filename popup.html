@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      width: 300px;
+      padding: 16px;
+      margin: 0;
+    }
+    h2 {
+      font-size: 15px;
+      margin: 0 0 12px;
+      color: #1a73e8;
+    }
+    #sendBtn {
+      width: 100%;
+      padding: 10px;
+      background: #1a73e8;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #sendBtn:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 12px;
+      list-style: none;
+      padding: 0;
+      font-size: 13px;
+    }
+    #status li {
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .icon-ok { color: #34a853; }
+    .icon-err { color: #ea4335; }
+    .icon-wait { color: #fbbc04; }
+  </style>
+</head>
+<body>
+  <h2>Gmail Auto Sender</h2>
+  <button id="sendBtn">Send All Open Compose Tabs</button>
+  <ul id="status"></ul>
+  <script src="popup.js"></script>
+</body>
+</html>
