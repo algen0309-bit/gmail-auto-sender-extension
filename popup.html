@@ -11,8 +11,44 @@
     }
     h2 {
       font-size: 15px;
-      margin: 0 0 12px;
+      margin: 0 0 14px;
       color: #1a73e8;
+    }
+    .delay-section {
+      margin-bottom: 14px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .delay-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #444;
+      margin-bottom: 6px;
+    }
+    .delay-label span:first-child {
+      font-weight: 600;
+    }
+    #delayValue {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1a73e8;
+      min-width: 52px;
+      text-align: right;
+    }
+    #delaySlider {
+      width: 100%;
+      accent-color: #1a73e8;
+      cursor: pointer;
+    }
+    .delay-range-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #999;
+      margin-top: 2px;
     }
     #sendBtn {
       width: 100%;
@@ -41,13 +77,23 @@
       align-items: center;
       gap: 6px;
     }
-    .icon-ok { color: #34a853; }
-    .icon-err { color: #ea4335; }
-    .icon-wait { color: #fbbc04; }
   </style>
 </head>
 <body>
   <h2>Gmail Auto Sender</h2>
+
+  <div class="delay-section">
+    <div class="delay-label">
+      <span>Delay between emails</span>
+      <span id="delayValue">30s</span>
+    </div>
+    <input type="range" id="delaySlider" min="10" max="300" step="5" value="30" />
+    <div class="delay-range-labels">
+      <span>10s</span>
+      <span>5 min</span>
+    </div>
+  </div>
+
   <button id="sendBtn">Send All Open Compose Tabs</button>
   <ul id="status"></ul>
   <script src="popup.js"></script>
