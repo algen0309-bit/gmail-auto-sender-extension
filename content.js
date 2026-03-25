@@ -1,5 +1,8 @@
 // Selectors for Gmail compose send button
+// Note: Gmail renders two overlapping send buttons — the first is hidden (0px, pointer-events:none).
+// Mailsuite adds class "mt-send" to the visible one, so we target that first.
 const SEND_BTN_SELECTORS = [
+  'div.mt-send[role="button"]',
   'div[data-tooltip^="Send"]',
   'div[aria-label^="Send"]',
   'div.T-I.J-J5-Ji.aoO[role="button"]',
@@ -12,10 +15,17 @@ const COMPOSE_BODY_SELECTORS = [
   'div.Am.Al.editable',
 ];
 
+function isVisible(el) {
+  const style = window.getComputedStyle(el);
+  return style.pointerEvents !== 'none' && el.offsetWidth > 0 && el.offsetHeight > 0;
+}
+
 function findSendButton() {
   for (const sel of SEND_BTN_SELECTORS) {
-    const el = document.querySelector(sel);
-    if (el) return el;
+    const els = document.querySelectorAll(sel);
+    for (const el of els) {
+      if (isVisible(el)) return el;
+    }
   }
   return null;
 }
