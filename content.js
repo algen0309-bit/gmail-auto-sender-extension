@@ -1,12 +1,16 @@
-// Selectors for Gmail compose send button (MV3 / 2025 Gmail DOM)
+// Selectors for Gmail compose send button
 const SEND_BTN_SELECTORS = [
   'div[data-tooltip^="Send"]',
   'div[aria-label^="Send"]',
   'div.T-I.J-J5-Ji.aoO[role="button"]',
 ];
 
-// How long to wait (ms) for Mailtrack.io to inject its tracking pixel
-const MAILTRACK_DELAY_MS = 1500;
+// Selectors for the compose body (contenteditable area)
+const COMPOSE_BODY_SELECTORS = [
+  'div[aria-label="Message Body"]',
+  'div[g_editable="true"]',
+  'div.Am.Al.editable',
+];
 
 function findSendButton() {
   for (const sel of SEND_BTN_SELECTORS) {
@@ -16,26 +20,61 @@ function findSendButton() {
   return null;
 }
 
+function findComposeBody() {
+  for (const sel of COMPOSE_BODY_SELECTORS) {
+    const el = document.querySelector(sel);
+    if (el) return el;
+  }
+  return null;
+}
+
+// Focus the compose body to trigger Mailsuite's pixel injection,
+// then poll until a tracking <img> appears or the timeout is reached.
+function waitForTrackerPixel(bodyEl, timeoutMs) {
+  return new Promise((resolve) => {
+    // Focusing the body signals to Mailsuite that the compose is active
+    bodyEl.click();
+    bodyEl.focus();
+
+    const start = Date.now();
+
+    const interval = setInterval(() => {
+      if (bodyEl.querySelector('img')) {
+        clearInterval(interval);
+        resolve(true); // pixel found
+      } else if (Date.now() - start >= timeoutMs) {
+        clearInterval(interval);
+        resolve(false); // timed out — send anyway
+      }
+    }, 200);
+  });
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.action !== 'autoSend') return;
 
   const sendBtn = findSendButton();
-
   if (!sendBtn) {
     sendResponse({ success: false, message: 'No compose window found' });
     return true;
   }
 
-  // Wait for Mailtrack.io to inject its tracking pixel before clicking Send
-  setTimeout(() => {
+  const timeoutMs = message.trackerTimeoutMs || 5000;
+  const bodyEl = findComposeBody();
+
+  const waitPromise = bodyEl
+    ? waitForTrackerPixel(bodyEl, timeoutMs)
+    : Promise.resolve(false);
+
+  waitPromise.then((pixelFound) => {
     try {
       sendBtn.click();
-      sendResponse({ success: true, message: 'Sent' });
+      sendResponse({ success: true, pixelFound });
     } catch (err) {
       sendResponse({ success: false, message: err.message });
     }
-  }, MAILTRACK_DELAY_MS);
+  });
 
-  // Return true to keep the message channel open for the async response
+  // Keep message channel open for async response
   return true;
 });
