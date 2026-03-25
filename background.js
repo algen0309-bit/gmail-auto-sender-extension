@@ -36,7 +36,9 @@ async function sendToTab(tabId, trackerTimeoutMs) {
   });
 }
 
-function notify(id, title, message) {
+async function notify(id, title, message) {
+  const data = await chrome.storage.local.get('notifications');
+  if (data.notifications === false) return;
   chrome.notifications.create(id, {
     type: 'basic',
     iconUrl: 'icon48.png',

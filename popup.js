@@ -5,8 +5,9 @@ const minSlider  = document.getElementById('minSlider');
 const maxSlider  = document.getElementById('maxSlider');
 const minValue   = document.getElementById('minValue');
 const maxValue   = document.getElementById('maxValue');
-const trackerSlider = document.getElementById('trackerSlider');
-const trackerValue  = document.getElementById('trackerValue');
+const trackerSlider  = document.getElementById('trackerSlider');
+const trackerValue   = document.getElementById('trackerValue');
+const notifyToggle   = document.getElementById('notifyToggle');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -44,11 +45,17 @@ trackerSlider.addEventListener('input', () => {
   chrome.storage.local.set({ trackerTimeout: v });
 });
 
-// Restore saved slider values
-chrome.storage.local.get(['minDelay', 'maxDelay', 'trackerTimeout'], (data) => {
+// Restore saved settings
+chrome.storage.local.get(['minDelay', 'maxDelay', 'trackerTimeout', 'notifications'], (data) => {
   if (data.minDelay)      { minSlider.value = data.minDelay; minValue.textContent = formatDelay(data.minDelay); }
   if (data.maxDelay)      { maxSlider.value = data.maxDelay; maxValue.textContent = formatDelay(data.maxDelay); }
   if (data.trackerTimeout){ trackerSlider.value = data.trackerTimeout; trackerValue.textContent = `${data.trackerTimeout}s`; }
+  // default true; only false when explicitly saved as false
+  notifyToggle.checked = data.notifications !== false;
+});
+
+notifyToggle.addEventListener('change', () => {
+  chrome.storage.local.set({ notifications: notifyToggle.checked });
 });
 
 // ── Status display ────────────────────────────────────────────────────────────
@@ -126,6 +133,7 @@ sendBtn.addEventListener('click', async () => {
     minSec,
     maxSec,
     trackerTimeoutMs,
+    notifications: notifyToggle.checked,
   });
 });
 
