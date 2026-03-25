@@ -4,6 +4,8 @@ const minSlider = document.getElementById('minSlider');
 const maxSlider = document.getElementById('maxSlider');
 const minValue = document.getElementById('minValue');
 const maxValue = document.getElementById('maxValue');
+const trackerSlider = document.getElementById('trackerSlider');
+const trackerValue = document.getElementById('trackerValue');
 
 // --- Helpers ---
 
@@ -35,9 +37,9 @@ function updateStatusItem(li, label, state) {
   li.innerHTML = `<span>${icons[state]}</span><span>${label}</span>`;
 }
 
-async function sendToTab(tab) {
+async function sendToTab(tab, trackerTimeoutMs) {
   return new Promise((resolve) => {
-    chrome.tabs.sendMessage(tab.id, { action: 'autoSend' }, (response) => {
+    chrome.tabs.sendMessage(tab.id, { action: 'autoSend', trackerTimeoutMs }, (response) => {
       if (chrome.runtime.lastError) {
         resolve({ success: false, message: 'no compose window' });
       } else {
@@ -65,10 +67,17 @@ function enforceMinMax() {
 minSlider.addEventListener('input', enforceMinMax);
 maxSlider.addEventListener('input', enforceMinMax);
 
+trackerSlider.addEventListener('input', () => {
+  const v = Number(trackerSlider.value);
+  trackerValue.textContent = `${v}s`;
+  chrome.storage.local.set({ trackerTimeout: v });
+});
+
 // Restore saved values on popup open
-chrome.storage.local.get(['minDelay', 'maxDelay'], (data) => {
+chrome.storage.local.get(['minDelay', 'maxDelay', 'trackerTimeout'], (data) => {
   if (data.minDelay) { minSlider.value = data.minDelay; minValue.textContent = formatDelay(data.minDelay); }
   if (data.maxDelay) { maxSlider.value = data.maxDelay; maxValue.textContent = formatDelay(data.maxDelay); }
+  if (data.trackerTimeout) { trackerSlider.value = data.trackerTimeout; trackerValue.textContent = `${data.trackerTimeout}s`; }
 });
 
 // --- Send ---
@@ -89,16 +98,18 @@ sendBtn.addEventListener('click', async () => {
 
   const minSec = Number(minSlider.value);
   const maxSec = Number(maxSlider.value);
+  const trackerTimeoutMs = Number(trackerSlider.value) * 1000;
 
   for (let i = 0; i < tabs.length; i++) {
     const tab = tabs[i];
     const shortTitle = tab.title?.replace(' - Gmail', '').trim() || `Tab ${tab.id}`;
-    const li = addStatusItem(`${shortTitle} — sending…`, 'wait');
+    const li = addStatusItem(`${shortTitle} — waiting for tracker…`, 'wait');
 
-    const result = await sendToTab(tab);
+    const result = await sendToTab(tab, trackerTimeoutMs);
 
     if (result.success) {
-      updateStatusItem(li, `${shortTitle} — sent!`, 'ok');
+      const tracked = result.pixelFound ? ' (tracked)' : ' (no pixel)';
+      updateStatusItem(li, `${shortTitle} — sent!${tracked}`, 'ok');
     } else {
       updateStatusItem(li, `${shortTitle} — ${result.message}`, 'err');
     }
