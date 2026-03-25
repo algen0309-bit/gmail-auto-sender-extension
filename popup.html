@@ -107,6 +107,16 @@
     <div class="range-hint">1s &nbsp;–&nbsp; 5 min</div>
   </div>
 
+  <div class="delay-section">
+    <div class="delay-title">Tracker pixel wait timeout</div>
+    <div class="range-row">
+      <label>Wait</label>
+      <input type="range" id="trackerSlider" min="2" max="15" step="1" value="5" />
+      <span class="val" id="trackerValue">5s</span>
+    </div>
+    <div class="range-hint">Max time to wait for Mailsuite to inject pixel</div>
+  </div>
+
   <button id="sendBtn">Send All Open Compose Tabs</button>
   <ul id="status"></ul>
   <script src="popup.js"></script>
