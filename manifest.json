@@ -3,8 +3,11 @@
   "name": "Gmail Auto Sender",
   "version": "1.0",
   "description": "Automatically sends all open Gmail compose windows with one click.",
-  "permissions": ["tabs", "scripting", "storage"],
+  "permissions": ["tabs", "scripting", "storage", "alarms", "notifications"],
   "host_permissions": ["*://mail.google.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["*://mail.google.com/*"],
@@ -14,6 +17,10 @@
   ],
   "action": {
     "default_popup": "popup.html",
+    "default_icon": "icon48.png",
     "default_title": "Gmail Auto Sender"
+  },
+  "icons": {
+    "48": "icon48.png"
   }
 }
