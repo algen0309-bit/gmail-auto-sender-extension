@@ -104,8 +104,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     waitPixel.then((pixelFound) => {
       try {
-        sendBtn.click();
-        sendResponse({ success: true, pixelFound });
+        // Gmail ignores synthetic .click() — use Ctrl+Enter keyboard shortcut instead
+        const composeBody = bodyEl || findComposeBody();
+        if (composeBody) {
+          composeBody.focus();
+          composeBody.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Enter', code: 'Enter', keyCode: 13,
+            ctrlKey: true, bubbles: true, cancelable: true
+          }));
+          sendResponse({ success: true, pixelFound });
+        } else {
+          // Fallback: try clicking the button directly with a real MouseEvent
+          sendBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+          sendBtn.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true, cancelable: true, view: window }));
+          sendBtn.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true, view: window }));
+          sendResponse({ success: true, pixelFound });
+        }
       } catch (err) {
         sendResponse({ success: false, message: err.message });
       }
