@@ -1,13 +1,14 @@
-const sendBtn = document.getElementById('sendBtn');
+const sendBtn    = document.getElementById('sendBtn');
+const cancelBtn  = document.getElementById('cancelBtn');
 const statusList = document.getElementById('status');
-const minSlider = document.getElementById('minSlider');
-const maxSlider = document.getElementById('maxSlider');
-const minValue = document.getElementById('minValue');
-const maxValue = document.getElementById('maxValue');
+const minSlider  = document.getElementById('minSlider');
+const maxSlider  = document.getElementById('maxSlider');
+const minValue   = document.getElementById('minValue');
+const maxValue   = document.getElementById('maxValue');
 const trackerSlider = document.getElementById('trackerSlider');
-const trackerValue = document.getElementById('trackerValue');
+const trackerValue  = document.getElementById('trackerValue');
 
-// --- Helpers ---
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDelay(seconds) {
   if (seconds < 60) return `${seconds}s`;
@@ -16,69 +17,20 @@ function formatDelay(seconds) {
   return s === 0 ? `${m}m` : `${m}m ${s}s`;
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function randomDelay(minSec, maxSec) {
-  return Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
-}
-
-function addStatusItem(label, state) {
-  const icons = { wait: '⏳', ok: '✅', err: '❌', countdown: '⏱️' };
+function addItem(label, state) {
+  const icons = { wait: '⏳', ok: '✅', err: '❌', info: 'ℹ️' };
   const li = document.createElement('li');
-  li.innerHTML = `<span>${icons[state]}</span><span>${label}</span>`;
+  li.innerHTML = `<span>${icons[state] || ''}</span><span>${label}</span>`;
   statusList.appendChild(li);
   return li;
 }
 
-function updateStatusItem(li, label, state) {
-  const icons = { wait: '⏳', ok: '✅', err: '❌', countdown: '⏱️' };
-  li.innerHTML = `<span>${icons[state]}</span><span>${label}</span>`;
-}
-
-async function ensureContentScript(tabId) {
-  // Check if content script is already running
-  const alive = await new Promise((resolve) => {
-    chrome.tabs.sendMessage(tabId, { action: 'ping' }, (res) => {
-      resolve(!chrome.runtime.lastError && res?.alive === true);
-    });
-  });
-  if (alive) return true;
-  // Inject it programmatically (handles tabs opened before extension loaded)
-  try {
-    await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-async function sendToTab(tab, trackerTimeoutMs) {
-  const injected = await ensureContentScript(tab.id);
-  if (!injected) return { success: false, message: 'could not inject script' };
-
-  return new Promise((resolve) => {
-    chrome.tabs.sendMessage(tab.id, { action: 'autoSend', trackerTimeoutMs }, (response) => {
-      if (chrome.runtime.lastError) {
-        resolve({ success: false, message: chrome.runtime.lastError.message });
-      } else {
-        resolve(response || { success: false, message: 'no response' });
-      }
-    });
-  });
-}
-
-// --- Sliders ---
+// ── Sliders ───────────────────────────────────────────────────────────────────
 
 function enforceMinMax() {
   let min = Number(minSlider.value);
   let max = Number(maxSlider.value);
-  // Keep min <= max
-  if (min > max) {
-    [minSlider.value, maxSlider.value] = [max, min];
-    [min, max] = [max, min];
-  }
+  if (min > max) { [minSlider.value, maxSlider.value] = [max, min]; [min, max] = [max, min]; }
   minValue.textContent = formatDelay(min);
   maxValue.textContent = formatDelay(max);
   chrome.storage.local.set({ minDelay: min, maxDelay: max });
@@ -86,33 +38,75 @@ function enforceMinMax() {
 
 minSlider.addEventListener('input', enforceMinMax);
 maxSlider.addEventListener('input', enforceMinMax);
-
 trackerSlider.addEventListener('input', () => {
   const v = Number(trackerSlider.value);
   trackerValue.textContent = `${v}s`;
   chrome.storage.local.set({ trackerTimeout: v });
 });
 
-// Restore saved values on popup open
+// Restore saved slider values
 chrome.storage.local.get(['minDelay', 'maxDelay', 'trackerTimeout'], (data) => {
-  if (data.minDelay) { minSlider.value = data.minDelay; minValue.textContent = formatDelay(data.minDelay); }
-  if (data.maxDelay) { maxSlider.value = data.maxDelay; maxValue.textContent = formatDelay(data.maxDelay); }
-  if (data.trackerTimeout) { trackerSlider.value = data.trackerTimeout; trackerValue.textContent = `${data.trackerTimeout}s`; }
+  if (data.minDelay)      { minSlider.value = data.minDelay; minValue.textContent = formatDelay(data.minDelay); }
+  if (data.maxDelay)      { maxSlider.value = data.maxDelay; maxValue.textContent = formatDelay(data.maxDelay); }
+  if (data.trackerTimeout){ trackerSlider.value = data.trackerTimeout; trackerValue.textContent = `${data.trackerTimeout}s`; }
 });
 
-// --- Send ---
+// ── Status display ────────────────────────────────────────────────────────────
 
-sendBtn.addEventListener('click', async () => {
-  sendBtn.disabled = true;
-  sendBtn.textContent = 'Sending...';
+function renderQueue(queue) {
   statusList.innerHTML = '';
 
-  const tabs = await chrome.tabs.query({ url: '*://mail.google.com/*' });
+  if (!queue) {
+    setIdle();
+    return;
+  }
 
+  const { status, results = [], tabIds = [], nextAt } = queue;
+
+  // Completed results
+  for (const r of results) {
+    if (r.success) {
+      const tracked = r.pixelFound ? ' (tracked)' : ' (no pixel)';
+      addItem(`${r.title} — sent!${tracked}`, 'ok');
+    } else {
+      addItem(`${r.title} — ${r.message}`, 'err');
+    }
+  }
+
+  if (status === 'running') {
+    const remaining = tabIds.length - results.length;
+    if (remaining > 0) {
+      addItem(`${remaining} tab(s) remaining…`, 'wait');
+      if (nextAt) {
+        const secsLeft = Math.max(0, Math.round((nextAt - Date.now()) / 1000));
+        if (secsLeft > 0) addItem(`Next in ${formatDelay(secsLeft)}`, 'info');
+      }
+    }
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending in background…';
+    cancelBtn.style.display = 'block';
+  } else {
+    setIdle();
+    cancelBtn.style.display = 'none';
+  }
+}
+
+function setIdle() {
+  sendBtn.disabled = false;
+  sendBtn.textContent = 'Send All Open Compose Tabs';
+  cancelBtn.style.display = 'none';
+}
+
+// Check queue state when popup opens
+chrome.storage.local.get('sendQueue', (data) => renderQueue(data.sendQueue || null));
+
+// ── Send button ───────────────────────────────────────────────────────────────
+
+sendBtn.addEventListener('click', async () => {
+  const tabs = await chrome.tabs.query({ url: '*://mail.google.com/*' });
   if (tabs.length === 0) {
-    addStatusItem('No Gmail tabs found.', 'err');
-    sendBtn.disabled = false;
-    sendBtn.textContent = 'Send All Open Compose Tabs';
+    statusList.innerHTML = '';
+    addItem('No Gmail tabs found.', 'err');
     return;
   }
 
@@ -120,34 +114,27 @@ sendBtn.addEventListener('click', async () => {
   const maxSec = Number(maxSlider.value);
   const trackerTimeoutMs = Number(trackerSlider.value) * 1000;
 
-  for (let i = 0; i < tabs.length; i++) {
-    const tab = tabs[i];
-    const shortTitle = tab.title?.replace(' - Gmail', '').trim() || `Tab ${tab.id}`;
-    const li = addStatusItem(`${shortTitle} — waiting for tracker…`, 'wait');
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Sending in background…';
+  cancelBtn.style.display = 'block';
+  statusList.innerHTML = '';
+  addItem(`Starting — ${tabs.length} tab(s) queued`, 'wait');
 
-    const result = await sendToTab(tab, trackerTimeoutMs);
+  chrome.runtime.sendMessage({
+    action: 'startQueue',
+    tabIds: tabs.map((t) => t.id),
+    minSec,
+    maxSec,
+    trackerTimeoutMs,
+  });
+});
 
-    if (result.success) {
-      const tracked = result.pixelFound ? ' (tracked)' : ' (no pixel)';
-      updateStatusItem(li, `${shortTitle} — sent!${tracked}`, 'ok');
-    } else {
-      updateStatusItem(li, `${shortTitle} — ${result.message}`, 'err');
-    }
+// ── Cancel button ─────────────────────────────────────────────────────────────
 
-    // Random countdown between emails (skip after the last one)
-    if (i < tabs.length - 1) {
-      const delaySec = randomDelay(minSec, maxSec);
-      const countdownLi = addStatusItem(`Next in ${formatDelay(delaySec)}…`, 'countdown');
-
-      for (let t = delaySec; t > 0; t--) {
-        updateStatusItem(countdownLi, `Next in ${formatDelay(t)}…`, 'countdown');
-        await sleep(1000);
-      }
-
-      countdownLi.remove();
-    }
-  }
-
-  sendBtn.disabled = false;
-  sendBtn.textContent = 'Send All Open Compose Tabs';
+cancelBtn.addEventListener('click', () => {
+  chrome.runtime.sendMessage({ action: 'cancelQueue' }, () => {
+    statusList.innerHTML = '';
+    addItem('Cancelled.', 'info');
+    setIdle();
+  });
 });
