@@ -1,3 +1,9 @@
+// Guard against double-injection (popup.js may inject this programmatically)
+if (window.__gmailAutoSenderInjected) {
+  // Already loaded — do nothing to avoid duplicate listeners
+} else {
+window.__gmailAutoSenderInjected = true;
+
 // Mailsuite marks the visible Send button with class "mt-send".
 // Gmail also renders a hidden 0px button with the same selectors — skip those.
 const SEND_BTN_SELECTORS = [
@@ -108,3 +114,5 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   return true; // async response
 });
+
+} // end guard: window.__gmailAutoSenderInjected

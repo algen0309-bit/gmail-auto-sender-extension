@@ -37,11 +37,31 @@ function updateStatusItem(li, label, state) {
   li.innerHTML = `<span>${icons[state]}</span><span>${label}</span>`;
 }
 
+async function ensureContentScript(tabId) {
+  // Check if content script is already running
+  const alive = await new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, { action: 'ping' }, (res) => {
+      resolve(!chrome.runtime.lastError && res?.alive === true);
+    });
+  });
+  if (alive) return true;
+  // Inject it programmatically (handles tabs opened before extension loaded)
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 async function sendToTab(tab, trackerTimeoutMs) {
+  const injected = await ensureContentScript(tab.id);
+  if (!injected) return { success: false, message: 'could not inject script' };
+
   return new Promise((resolve) => {
     chrome.tabs.sendMessage(tab.id, { action: 'autoSend', trackerTimeoutMs }, (response) => {
       if (chrome.runtime.lastError) {
-        resolve({ success: false, message: 'no compose window' });
+        resolve({ success: false, message: chrome.runtime.lastError.message });
       } else {
         resolve(response || { success: false, message: 'no response' });
       }
